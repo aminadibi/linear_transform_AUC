@@ -1,0 +1,77 @@
+---
+title: "Linear Transforms and AUC"
+format: html
+editor: visual
+---
+
+## Simulation
+
+Anything transformation that preserves the order of the predictor does not affect AUC.
+
+```{r}
+
+library(tidyverse)
+
+set.seed(124)
+x_0 <- tibble(x=rnorm(100, 2), y=rep(0, 100))
+x_1 <- tibble(x=rnorm(100, 3.5), y=rep(1, 100))
+
+df <- rbind(x_0, x_1) %>%
+  mutate(y=factor(y))
+
+ggplot(df) +
+  geom_histogram(aes(x=x, fill=y), alpha=0.6, position = 'identity') + 
+
+    labs(fill="")
+
+```
+
+Let's fit a model:
+
+```{r}
+library(tidymodels)
+
+getROC <- function(df){
+  lr_mod <- 
+  logistic_reg() %>% 
+  set_engine("glm")
+
+# Fit model
+lr_fit <- lr_mod %>%
+  fit(y ~ x, data = df)
+
+# Extract model predictions
+pred <- predict(lr_fit, df, type = "prob")
+
+# Combine actual outcomes with predicted probabilities
+results <- bind_cols(df, pred)
+
+# Generate ROC curve data
+roc_data <- roc_curve(results, truth = y, .pred_0)
+
+# Plot ROC curve
+ggplot(roc_data, aes(x = 1 - specificity, y = sensitivity)) +
+  geom_path() +
+  geom_abline(lty = 2) +  # Adds a 45 degree line
+  labs(x = "1 - Specificity (False Positive Rate)", y = "Sensitivity (True Positive Rate)",
+       title = "ROC Curve") +
+   annotate(geom="text", x=0.05, y=0.9, 
+            label=paste0("AUC = ", roc_auc(results, truth = y, .pred_0 )$.estimate),
+              color="salmon") +
+  theme_minimal()
+
+}
+
+
+
+
+```
+
+```{r}
+getROC(df)
+
+df2 <- df %>%
+  mutate(x=3.8*x+x+2)
+
+getROC(df2)
+```
